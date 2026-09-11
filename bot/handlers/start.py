@@ -5,14 +5,15 @@ from aiogram.types import Message
 router = Router(name="start")
 
 START_MESSAGE = (
-    "Hi! I'm a search bot, currently in active development.\n\n"
-    "<b>Available now:</b>\n"
-    "- Just send me any text, and I'll search Wikipedia for it\n\n"
-    "<b>Planned:</b>\n"
-    "- GitHub repository search\n"
-    "- Stack Overflow question search\n"
-    "- Concurrent search across all sources at once\n\n"
-    "To try it, just type something and send it, no command needed."
+    "<b>Competitive Search Bot</b>\n"
+    "@competitive_search_bot\n\n"
+    "Send any text query and I will search across:\n"
+    "- Wikipedia articles\n"
+    "- GitHub repositories\n"
+    "- Stack Overflow questions\n\n"
+    "Searches run concurrently. If one source is unavailable, I will still show "
+    "results from the others.\n\n"
+    "Try: <code>python asyncio semaphore</code>"
 )
 
 

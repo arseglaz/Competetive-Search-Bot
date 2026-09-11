@@ -3,6 +3,7 @@ from html import escape
 from aiogram import Router
 from aiogram.types import Message
 
+from bot.models.search_response import SearchResponse
 from bot.models.search_result import SearchResult
 from bot.services.search_service import SearchService
 
@@ -21,10 +22,12 @@ async def search_message(
         return
 
     search_response = await search_service.search(query)
+    await message.answer(format_search_response(query, search_response))
 
+
+def format_search_response(query: str, search_response: SearchResponse) -> str:
     if not search_response.results and not search_response.failures:
-        await message.answer(f'No results found for "{escape(query)}".')
-        return
+        return f'No results found for "{escape(query)}".'
 
     if search_response.results:
         lines = [
@@ -44,7 +47,7 @@ async def search_message(
         for failure in search_response.failures:
             lines.append(f"{escape(failure.source)} is temporarily unavailable.")
 
-    await message.answer("\n".join(lines))
+    return "\n".join(lines)
 
 
 def _format_section(source_name: str, results: list[SearchResult]) -> list[str]:
