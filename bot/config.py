@@ -3,7 +3,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any, Tuple, Type
 
-from pydantic import BaseModel, SecretStr
+from pydantic import BaseModel, Field, SecretStr
 from pydantic_settings import (
     BaseSettings,
     PydanticBaseSettingsSource,
@@ -35,6 +35,11 @@ class HttpConfig(BaseModel):
     user_agent: str
 
 
+class SearchConfig(BaseModel):
+    provider_timeout_seconds: float = Field(default=5.0, gt=0)
+    max_concurrent_provider_calls: int = Field(default=10, gt=0)
+
+
 class TomlConfigSettingsSource(PydanticBaseSettingsSource):
     def get_field_value(
         self, field: Any, field_name: str
@@ -53,6 +58,7 @@ class Settings(BaseSettings):
     bot: BotConfig
     logs: LogConfig
     http: HttpConfig
+    search: SearchConfig = Field(default_factory=SearchConfig)
 
     model_config = SettingsConfigDict(
         env_nested_delimiter="__",

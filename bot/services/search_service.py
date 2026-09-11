@@ -18,12 +18,19 @@ class SearchProvider(Protocol):
 
 
 class SearchService:
-    def __init__(self, providers: list[SearchProvider]):
+    def __init__(
+        self,
+        providers: list[SearchProvider],
+        provider_timeout_seconds: float,
+        max_concurrent_provider_calls: int,
+    ):
         self._providers = providers
+        self._provider_timeout_seconds = provider_timeout_seconds
+        self._semaphore = asyncio.Semaphore(max_concurrent_provider_calls)
 
     async def search(self, query: str) -> SearchResponse:
         provider_results = await asyncio.gather(
-            *(provider.search(query) for provider in self._providers),
+            *(self._search_provider(provider, query) for provider in self._providers),
             return_exceptions=True,
         )
 
@@ -44,3 +51,14 @@ class SearchService:
             results.extend(provider_result)
 
         return SearchResponse(results=results, failures=failures)
+
+    async def _search_provider(
+        self,
+        provider: SearchProvider,
+        query: str,
+    ) -> list[SearchResult]:
+        async with self._semaphore:
+            return await asyncio.wait_for(
+                provider.search(query),
+                timeout=self._provider_timeout_seconds,
+            )

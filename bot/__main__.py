@@ -44,7 +44,9 @@ async def main() -> None:
                 wikipedia_provider,
                 github_provider,
                 stackoverflow_provider,
-            ]
+            ],
+            provider_timeout_seconds=settings.search.provider_timeout_seconds,
+            max_concurrent_provider_calls=settings.search.max_concurrent_provider_calls,
         )
 
         dp = Dispatcher(search_service=search_service)

@@ -14,3 +14,7 @@ allow_third_party_logs = true
 
 [http]
 user_agent = "CompetitiveSearchBot/0.1 (https://github.com/arseglaz/Competetive-Search-Bot)"
+
+[search]
+provider_timeout_seconds = 5.0
+max_concurrent_provider_calls = 10
