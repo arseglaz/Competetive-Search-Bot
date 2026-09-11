@@ -30,14 +30,17 @@ async def main() -> None:
         wikipedia_provider = WikipediaProvider(
             client=client,
             user_agent=settings.http.user_agent,
+            limit=2,
         )
         github_provider = GitHubProvider(
             client=client,
             user_agent=settings.http.user_agent,
+            limit=3,
         )
         stackoverflow_provider = StackOverflowProvider(
             client=client,
             user_agent=settings.http.user_agent,
+            limit=3,
         )
         search_service = SearchService(
             providers=[

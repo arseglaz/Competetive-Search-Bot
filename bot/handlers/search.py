@@ -8,7 +8,8 @@ from bot.models.search_result import SearchResult
 from bot.services.search_service import SearchService
 
 router = Router(name="search")
-SOURCE_ORDER = ["Wikipedia", "GitHub", "Stack Overflow"]
+SOURCE_ORDER = ["Stack Overflow", "GitHub", "Wikipedia"]
+MAX_DESCRIPTION_LENGTH = 180
 
 
 @router.message()
@@ -31,7 +32,7 @@ def format_search_response(query: str, search_response: SearchResponse) -> str:
 
     if search_response.results:
         lines = [
-            f'Found {len(search_response.results)} result(s) for "{escape(query)}":'
+            f"<b>Results for:</b> <code>{escape(query)}</code>"
         ]
     else:
         lines = [f'No results found for "{escape(query)}".']
@@ -58,14 +59,25 @@ def _format_section(source_name: str, results: list[SearchResult]) -> list[str]:
     ]
 
     if not source_results:
-        return [f"\n<b>{source_name}</b>\nNo results found."]
+        return []
 
     lines = [f"\n<b>{source_name}</b>"]
     for i, item in enumerate(source_results, start=1):
         lines.append(
-            f"\n<b>{i}. {escape(item.title)}</b>\n"
-            f"{escape(item.description)}\n"
-            f'<a href="{escape(item.url)}">Open result</a>'
+            f'{i}. <a href="{escape(item.url)}">{escape(item.title)}</a>\n'
+            f"   {_format_description(item.description)}"
         )
 
     return lines
+
+
+def _shorten_text(text: str) -> str:
+    if len(text) <= MAX_DESCRIPTION_LENGTH:
+        return text
+
+    return text[: MAX_DESCRIPTION_LENGTH - 1].rstrip() + "..."
+
+
+def _format_description(text: str) -> str:
+    description = escape(_shorten_text(text))
+    return "\n   ".join(description.splitlines())

@@ -47,12 +47,10 @@ class StackOverflowProvider:
 
 def _build_description(item: dict) -> str:
     details = [
-        f"Answers: {item.get('answer_count', 0)}",
         f"Score: {item.get('score', 0)}",
-        f"Accepted answer: {_format_accepted_answer(item)}",
+        f"Answers: {item.get('answer_count', 0)}",
     ]
+    if item.get("accepted_answer_id"):
+        details.append("Accepted")
+
     return " | ".join(details)
-
-
-def _format_accepted_answer(item: dict) -> str:
-    return "Yes" if item.get("accepted_answer_id") else "No"

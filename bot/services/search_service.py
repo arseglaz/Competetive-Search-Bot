@@ -6,6 +6,7 @@ from structlog.typing import FilteringBoundLogger
 
 from bot.models.search_response import SearchFailure, SearchResponse
 from bot.models.search_result import SearchResult
+from bot.services.result_ranking import rank_results
 
 logger: FilteringBoundLogger = structlog.get_logger()
 
@@ -50,7 +51,10 @@ class SearchService:
 
             results.extend(provider_result)
 
-        return SearchResponse(results=results, failures=failures)
+        return SearchResponse(
+            results=rank_results(query, results),
+            failures=failures,
+        )
 
     async def _search_provider(
         self,

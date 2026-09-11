@@ -51,8 +51,8 @@ def _build_description(item: dict) -> str:
         description_parts.append(item["description"])
 
     details = [
-        f"Stars: {item.get('stargazers_count', 0)}",
-        f"Language: {item.get('language') or 'Unknown'}",
+        item.get("language") or "Unknown language",
+        f"{item.get('stargazers_count', 0)} stars",
     ]
     description_parts.append(" | ".join(details))
 
