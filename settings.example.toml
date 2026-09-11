@@ -11,3 +11,6 @@ time_in_utc = false
 use_colors_in_console = true
 renderer = "console"  # "console" or "json"
 allow_third_party_logs = true
+
+[http]
+user_agent = "CompetitiveSearchBot/0.1 (https://github.com/arseglaz/Competetive-Search-Bot)"
