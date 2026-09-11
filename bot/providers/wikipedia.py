@@ -20,6 +20,8 @@ def _clean_snippet(snippet: str) -> str:
 
 
 class WikipediaProvider:
+    source_name = SOURCE_NAME
+
     def __init__(self, client: httpx.AsyncClient, user_agent: str, limit: int = 5):
         self._client = client
         self._user_agent = user_agent

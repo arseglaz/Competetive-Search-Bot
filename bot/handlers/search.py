@@ -20,15 +20,29 @@ async def search_message(
         await message.answer("Please send a text query to search for.")
         return
 
-    results = await search_service.search(query)
+    search_response = await search_service.search(query)
 
-    if not results:
+    if not search_response.results and not search_response.failures:
         await message.answer(f'No results found for "{escape(query)}".')
         return
 
-    lines = [f'Found {len(results)} result(s) for "{escape(query)}":']
+    if search_response.results:
+        lines = [
+            f'Found {len(search_response.results)} result(s) for "{escape(query)}":'
+        ]
+    else:
+        lines = [f'No results found for "{escape(query)}".']
+
+    failed_sources = {failure.source for failure in search_response.failures}
     for source_name in SOURCE_ORDER:
-        lines.extend(_format_section(source_name, results))
+        if source_name in failed_sources:
+            continue
+        lines.extend(_format_section(source_name, search_response.results))
+
+    if search_response.failures:
+        lines.append("\n<b>Unavailable sources</b>")
+        for failure in search_response.failures:
+            lines.append(f"{escape(failure.source)} is temporarily unavailable.")
 
     await message.answer("\n".join(lines))
 
