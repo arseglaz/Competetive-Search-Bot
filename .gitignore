@@ -1,0 +1,35 @@
+# --- Secrets and Local Settings ---
+settings.toml
+.env
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# --- uv / venv ---
+.venv/
+venv/
+
+# --- Tests ---
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# --- IDE ---
+.idea/
+.vscode/
+
+# --- OS ---
+.DS_Store
+
+# --- Logs ---
+*.log
+logs/
