@@ -1,0 +1,81 @@
+import tomllib
+from enum import StrEnum
+from pathlib import Path
+from typing import Any, Tuple, Type
+
+from pydantic import BaseModel, Field, SecretStr
+from pydantic_settings import (
+    BaseSettings,
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
+)
+
+
+class LogRenderer(StrEnum):
+    JSON = "json"
+    CONSOLE = "console"
+
+
+class BotConfig(BaseModel):
+    token: SecretStr
+
+
+class LogConfig(BaseModel):
+    project_name: str
+    show_datetime: bool
+    datetime_format: str
+    show_debug_logs: bool
+    time_in_utc: bool
+    use_colors_in_console: bool
+    renderer: LogRenderer
+    allow_third_party_logs: bool
+
+
+class HttpConfig(BaseModel):
+    user_agent: str
+
+
+class SearchConfig(BaseModel):
+    provider_timeout_seconds: float = Field(default=5.0, gt=0)
+    max_concurrent_provider_calls: int = Field(default=10, gt=0)
+
+
+class TomlConfigSettingsSource(PydanticBaseSettingsSource):
+    def get_field_value(
+        self, field: Any, field_name: str
+    ) -> Tuple[Any, str, bool]:
+        return None, field_name, False
+
+    def __call__(self) -> dict[str, Any]:
+        file_path = Path(__file__).resolve().parent.parent.joinpath("settings.toml")
+        if not file_path.exists():
+            return {}
+        with file_path.open("rb") as f:
+            return tomllib.load(f)
+
+
+class Settings(BaseSettings):
+    bot: BotConfig
+    logs: LogConfig
+    http: HttpConfig
+    search: SearchConfig = Field(default_factory=SearchConfig)
+
+    model_config = SettingsConfigDict(
+        env_nested_delimiter="__",
+        extra="ignore",
+    )
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: Type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        return (
+            init_settings,
+            env_settings,
+            TomlConfigSettingsSource(settings_cls),
+        )
