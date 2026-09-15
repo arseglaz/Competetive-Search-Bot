@@ -4,6 +4,17 @@ version = "0.1.0"
 requires-python = ">=3.14"
 dependencies = [
     "aiogram>=3.31.0",
+    "httpx>=0.28.1",
     "pydantic-settings>=2.15.0",
     "structlog>=26.1.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+pythonpath = [
+    ".",
 ]

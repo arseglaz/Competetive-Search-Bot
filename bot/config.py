@@ -30,14 +30,10 @@ class LogConfig(BaseModel):
     renderer: LogRenderer
     allow_third_party_logs: bool
 
+class HttpConfig(BaseModel):
+    user_agent: str
 
 class TomlConfigSettingsSource(PydanticBaseSettingsSource):
-    """
-    Источник для чтения настроек из TOML-файла.
-    В этой версии подразумевается, что файл settings.toml
-    находится в корневой директории проекта, рядом с пакетом bot.
-    """
-
     def get_field_value(
         self, field: Any, field_name: str
     ) -> Tuple[Any, str, bool]:
@@ -52,22 +48,15 @@ class TomlConfigSettingsSource(PydanticBaseSettingsSource):
 
 
 class Settings(BaseSettings):
-    # Перечисляем, какие ключи ожидаются в конфиге
     bot: BotConfig
     logs: LogConfig
+    http: HttpConfig
 
-    """
-    Задаём параметры чтения конфига:
-    1. Разделитель вложенных ключей при чтении переменных окружения __
-    Т.е. ключ token внутри секции bot будет ожидаться как BOT__TOKEN
-    2. extra="ignore" - игнорируем любые ключи, которые не описаны в конфиге
-    """
     model_config = SettingsConfigDict(
         env_nested_delimiter="__",
         extra="ignore",
     )
 
-    # Этот кусок можно просто копипастить, он задаёт порядок чтения настроек.
     @classmethod
     def settings_customise_sources(
         cls,

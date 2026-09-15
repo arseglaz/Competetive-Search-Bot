@@ -1,43 +1,41 @@
 import asyncio
 
+import httpx
 import structlog
 from structlog.typing import FilteringBoundLogger
 
 from aiogram import Bot, Dispatcher
+from aiogram.client.default import DefaultBotProperties
 from bot.config import Settings
 from bot.handlers import get_routers
 from bot.logging_config import get_structlog_config
+from bot.providers.wikipedia import WikipediaProvider
 
 logger: FilteringBoundLogger = structlog.get_logger()
 
 async def main() -> None:
-    # Чтение конфигурации (toml-файл или env vars – не важно)
     settings = Settings()
-    # Конфигурирование логгера
     structlog.configure(**get_structlog_config(settings.logs))
 
-    # Создание объекта бота. Обязательный аргумент token – читаем токен
-    # из конфигурации. Поскольку токен помечен как SecretStr, то необходимо
-    # дополнительно вызывать get_secret_value().
     bot = Bot(
         token=settings.bot.token.get_secret_value(),
+        default=DefaultBotProperties(parse_mode="HTML"),
     )
 
-    # Создание объекта диспетчера и привязка роутеров
-    dp = Dispatcher()
-    # Небольшой лайфхак: include_routers() принимает на вход
-    # произвольное количество аргументов
-    # get_routers() возвращает список: [A, B, C,...]
-    # и этот список будет передан как набор аргументов:
-    # include_routers(A, B, C,...)
-    dp.include_routers(*get_routers())
+    async with httpx.AsyncClient() as client:
+        wikipedia_provider = WikipediaProvider(
+            client=client,
+            user_agent=settings.http.user_agent,
+        )
 
-    # Запуск бота в режиме поллинга
-    await logger.ainfo("Starting polling...")
-    try:
-        await dp.start_polling(bot)
-    finally:
-        await logger.ainfo("Bot stopped")
+        dp = Dispatcher(wikipedia_provider=wikipedia_provider)
+        dp.include_routers(*get_routers())
 
+        await logger.ainfo("Starting polling...")
+        try:
+            await dp.start_polling(bot)
+        finally:
+            await logger.ainfo("Bot stopped")
 
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())
