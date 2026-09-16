@@ -10,6 +10,7 @@ from bot.config import Settings
 from bot.handlers import get_routers
 from bot.logging_config import get_structlog_config
 from bot.providers.wikipedia import WikipediaProvider
+from bot.providers.github import GitHubProvider
 
 logger: FilteringBoundLogger = structlog.get_logger()
 
@@ -27,8 +28,15 @@ async def main() -> None:
             client=client,
             user_agent=settings.http.user_agent,
         )
+        github_provider = GitHubProvider(
+            client=client,
+            user_agent=settings.http.user_agent,
+        )
 
-        dp = Dispatcher(wikipedia_provider=wikipedia_provider)
+        dp = Dispatcher(
+            wikipedia_provider=wikipedia_provider,
+            github_provider=github_provider,
+        )
         dp.include_routers(*get_routers())
 
         await logger.ainfo("Starting polling...")
