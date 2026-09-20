@@ -11,6 +11,8 @@ from bot.handlers import get_routers
 from bot.logging_config import get_structlog_config
 from bot.providers.wikipedia import WikipediaProvider
 from bot.providers.github import GitHubProvider
+from bot.providers.stackoverflow import StackOverflowProvider
+from bot.services.search_service import SearchService
 
 logger: FilteringBoundLogger = structlog.get_logger()
 
@@ -32,11 +34,19 @@ async def main() -> None:
             client=client,
             user_agent=settings.http.user_agent,
         )
-
-        dp = Dispatcher(
-            wikipedia_provider=wikipedia_provider,
-            github_provider=github_provider,
+        stackoverflow_provider = StackOverflowProvider(
+            client=client,
+            user_agent=settings.http.user_agent,
         )
+        search_service = SearchService(
+            providers=[
+                wikipedia_provider,
+                github_provider,
+                stackoverflow_provider,
+            ],
+        )
+
+        dp = Dispatcher(search_service=search_service)
         dp.include_routers(*get_routers())
 
         await logger.ainfo("Starting polling...")

@@ -1,16 +1,16 @@
 from typing import Any
 
+import html
 import httpx
 
 from bot.models.search_result import SearchResult
 
-GITHUB_SEARCH_REPOSITORIES_URL = "https://api.github.com/search/repositories"
-SOURCE_NAME = "GitHub"
+STACK_OVERFLOW_SEARCH_URL = "https://api.stackexchange.com/2.3/search/advanced"
+SOURCE_NAME = "Stack Overflow"
 RESULTS_LIMIT = 3
-GITHUB_API_VERSION = "2022-11-28"
 
 
-class GitHubProvider:
+class StackOverflowProvider:
     def __init__(
         self,
         client: httpx.AsyncClient,
@@ -23,20 +23,17 @@ class GitHubProvider:
 
     async def search(self, query: str) -> list[SearchResult]:
         params = {
-            "q": query,
-            "per_page": self._limit,
-            "sort": "stars",
             "order": "desc",
+            "sort": "relevance",
+            "q": query,
+            "site": "stackoverflow",
+            "pagesize": self._limit,
         }
 
-        headers = {
-            "Accept": "application/vnd.github+json",
-            "User-Agent": self._user_agent,
-            "X-GitHub-Api-Version": GITHUB_API_VERSION,
-        }
+        headers = {"User-Agent": self._user_agent}
 
         response = await self._client.get(
-            GITHUB_SEARCH_REPOSITORIES_URL,
+            STACK_OVERFLOW_SEARCH_URL,
             params=params,
             headers=headers,
         )
@@ -45,9 +42,9 @@ class GitHubProvider:
 
         return [
             SearchResult(
-                title=item["full_name"],
+                title=html.unescape(item["title"]),
                 description=_build_description(item),
-                url=item["html_url"],
+                url=item["link"],
                 source=SOURCE_NAME,
             )
             for item in data.get("items", [])
@@ -55,13 +52,13 @@ class GitHubProvider:
 
 
 def _build_description(item: dict[str, Any]) -> str:
-    description_parts: list[str] = []
+    details = [
+        f"Answers: {item.get('answer_count', 0)}",
+        f"Score: {item.get('score', 0)}",
+        f"Accepted answer: {_format_accepted_answer(item)}",
+    ]
+    return " | ".join(details)
 
-    if item.get("description"):
-        description_parts.append(item["description"])
 
-    language = item.get("language") or "Unknown language"
-    stars_count = item.get("stargazers_count", 0)
-    description_parts.append(f"{language} | {stars_count} stars")
-
-    return "\n".join(description_parts)
+def _format_accepted_answer(item: dict[str, Any]) -> str:
+    return "Yes" if item.get("accepted_answer_id") else "No"
