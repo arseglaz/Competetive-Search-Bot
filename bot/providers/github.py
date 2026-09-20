@@ -11,6 +11,8 @@ GITHUB_API_VERSION = "2022-11-28"
 
 
 class GitHubProvider:
+    source_name = SOURCE_NAME
+
     def __init__(
         self,
         client: httpx.AsyncClient,

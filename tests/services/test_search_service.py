@@ -1,7 +1,5 @@
 import asyncio
 
-import pytest
-
 from bot.models.search_result import SearchResult
 from bot.services.search_service import SearchService
 
@@ -9,6 +7,7 @@ from bot.services.search_service import SearchService
 class FakeProvider:
     def __init__(self, source: str, delay: float = 0) -> None:
         self._source = source
+        self.source_name = source
         self._delay = delay
         self.received_query: str | None = None
 
@@ -26,6 +25,8 @@ class FakeProvider:
 
 
 class FailingProvider:
+    source_name = "Failing"
+
     async def search(self, query: str) -> list[SearchResult]:
         raise RuntimeError("provider failed")
 
@@ -36,11 +37,15 @@ def test_search_collects_results_from_all_providers() -> None:
         second_provider = FakeProvider("Second")
         service = SearchService(providers=[first_provider, second_provider])
 
-        results = await service.search("python asyncio")
+        search_response = await service.search("python asyncio")
 
         assert first_provider.received_query == "python asyncio"
         assert second_provider.received_query == "python asyncio"
-        assert [result.source for result in results] == ["First", "Second"]
+        assert [result.source for result in search_response.results] == [
+            "First",
+            "Second",
+        ]
+        assert search_response.failed_sources == []
 
     asyncio.run(run_search())
 
@@ -63,11 +68,13 @@ def test_search_runs_providers_concurrently() -> None:
     asyncio.run(run_search())
 
 
-def test_search_propagates_provider_error() -> None:
+def test_search_keeps_successful_results_when_provider_fails() -> None:
     async def run_search() -> None:
         service = SearchService(providers=[FakeProvider("First"), FailingProvider()])
 
-        with pytest.raises(RuntimeError, match="provider failed"):
-            await service.search("python asyncio")
+        search_response = await service.search("python asyncio")
+
+        assert [result.source for result in search_response.results] == ["First"]
+        assert search_response.failed_sources == ["Failing"]
 
     asyncio.run(run_search())

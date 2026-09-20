@@ -23,15 +23,32 @@ async def search_message(
 
     query = query.strip()
 
-    results = await search_service.search(query)
+    search_response = await search_service.search(query)
+    results = search_response.results
 
     if not results:
-        await message.answer(f'No results found for "{escape(query)}".')
+        lines: list[str] = [f'No results found for "{escape(query)}".']
+
+        if search_response.failed_sources:
+            failed_sources = ", ".join(
+                escape(source)
+                for source in search_response.failed_sources
+            )
+            lines.append(f"\nUnavailable sources: {failed_sources}")
+
+        await message.answer("\n".join(lines))
         return
 
     lines: list[str] = [f'Found {len(results)} result(s) for "{escape(query)}":']
     for source_name in SOURCE_ORDER:
         lines.extend(_format_section(source_name, results))
+
+    if search_response.failed_sources:
+        failed_sources = ", ".join(
+            escape(source)
+            for source in search_response.failed_sources
+        )
+        lines.append(f"\nUnavailable sources: {failed_sources}")
 
     await message.answer("\n".join(lines))
 
@@ -55,4 +72,3 @@ def _format_section(source_name: str, results: list[SearchResult]) -> list[str]:
         )
 
     return lines
-

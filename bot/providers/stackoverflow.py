@@ -11,6 +11,8 @@ RESULTS_LIMIT = 3
 
 
 class StackOverflowProvider:
+    source_name = SOURCE_NAME
+
     def __init__(
         self,
         client: httpx.AsyncClient,
