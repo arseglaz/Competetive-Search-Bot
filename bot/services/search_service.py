@@ -1,15 +1,16 @@
 import asyncio
 import math
-import structlog
-
 from dataclasses import dataclass
 from typing import Protocol
+
+import structlog
+from structlog.typing import FilteringBoundLogger
 
 from bot.models.search_response import SearchResponse
 from bot.models.search_result import SearchResult
 from bot.providers.errors import ProviderError
 
-logger = structlog.get_logger(__name__)
+logger: FilteringBoundLogger = structlog.get_logger(__name__)
 
 
 class SearchProvider(Protocol):
@@ -29,11 +30,14 @@ async def _search_provider(
     provider: SearchProvider,
     query: str,
     *,
+    semaphore: asyncio.Semaphore,
+    deadline: float,
     timeout_seconds: float,
 ) -> ProviderSearchResponse:
     try:
-        async with asyncio.timeout(timeout_seconds):
-            results = await provider.search(query)
+        async with asyncio.timeout_at(deadline):
+            async with semaphore:
+                results = await provider.search(query)
     except TimeoutError:
         await logger.awarning(
             "provider_search_timed_out",
@@ -78,28 +82,47 @@ class SearchService:
         self,
         providers: list[SearchProvider],
         *,
-        provider_timeout_seconds: float = 5.0,
+        search_timeout_seconds: float = 5.0,
+        max_concurrent_per_provider: int = 3,
     ) -> None:
         if (
-            not math.isfinite(provider_timeout_seconds)
-            or provider_timeout_seconds <= 0
+            not math.isfinite(search_timeout_seconds)
+            or search_timeout_seconds <= 0
         ):
             raise ValueError(
-                "provider_timeout_seconds must be finite and greater than zero"
+                "search_timeout_seconds must be finite and greater than zero"
             )
+        if (
+            isinstance(max_concurrent_per_provider, bool)
+            or not isinstance(max_concurrent_per_provider, int)
+            or max_concurrent_per_provider <= 0
+        ):
+            raise ValueError("max_concurrent_per_provider must be a positive integer")
 
-        self._providers = providers
-        self._providers_timeout_seconds = provider_timeout_seconds
+        self._providers = list(providers)
+        self._search_timeout_seconds = search_timeout_seconds
+        self._provider_semaphores = [
+            asyncio.Semaphore(max_concurrent_per_provider)
+            for _ in self._providers
+        ]
 
     async def search(self, query: str) -> SearchResponse:
+        deadline = asyncio.get_running_loop().time() + self._search_timeout_seconds
         provider_responses = await asyncio.gather(
             *(
                 _search_provider(
                     provider,
                     query,
-                    timeout_seconds=self._providers_timeout_seconds
+                    semaphore=semaphore,
+                    deadline=deadline,
+                    timeout_seconds=self._search_timeout_seconds,
                 )
-                for provider in self._providers)
+                for provider, semaphore in zip(
+                    self._providers,
+                    self._provider_semaphores,
+                    strict=True,
+                )
+            )
         )
 
         return SearchResponse(

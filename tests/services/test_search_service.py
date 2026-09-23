@@ -16,14 +16,14 @@ from bot.services.search_service import SearchService
 def test_search_rejects_invalid_timeout(timeout: float) -> None:
     with pytest.raises(
         ValueError,
-        match="provider_timeout_seconds must be finite and greater than zero",
+        match="search_timeout_seconds must be finite and greater than zero",
     ):
-        SearchService([], provider_timeout_seconds=timeout)
+        SearchService([], search_timeout_seconds=timeout)
 
 
 @pytest.mark.parametrize("timeout", [0.01, 5.0])
 def test_search_accepts_positive_finite_timeout(timeout: float) -> None:
-    SearchService([], provider_timeout_seconds=timeout)
+    SearchService([], search_timeout_seconds=timeout)
 
 
 class FakeProvider:
@@ -69,19 +69,21 @@ class WaitingProvider:
 
 
 @pytest.fixture
-def warning_log(monkeypatch):
+def warning_log(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
     log = AsyncMock()
     monkeypatch.setattr(search_service, "logger", log)
     return log.awarning
 
 
 @pytest.mark.parametrize("timeout", [0.01, 0.2])
-def test_timeout_preserves_results_and_logs(warning_log, timeout) -> None:
+def test_timeout_preserves_results_and_logs(
+    warning_log: AsyncMock, timeout: float,
+) -> None:
     async def run_search() -> None:
         slow = WaitingProvider("Slow")
         service = SearchService(
             [FakeProvider("Wikipedia"), FakeProvider("GitHub"), slow],
-            provider_timeout_seconds=timeout,
+            search_timeout_seconds=timeout,
         )
         response = await asyncio.wait_for(service.search("test"), timeout=1)
         assert [result.source for result in response.results] == ["Wikipedia", "GitHub"]
@@ -94,11 +96,11 @@ def test_timeout_preserves_results_and_logs(warning_log, timeout) -> None:
     asyncio.run(run_search())
 
 
-def test_all_providers_time_out(warning_log) -> None:
+def test_all_providers_time_out(warning_log: AsyncMock) -> None:
     async def run_search() -> None:
         service = SearchService(
             [WaitingProvider("First"), WaitingProvider("Second")],
-            provider_timeout_seconds=0.01,
+            search_timeout_seconds=0.01,
         )
         response = await asyncio.wait_for(service.search("test"), timeout=1)
         assert response.results == []
@@ -108,7 +110,7 @@ def test_all_providers_time_out(warning_log) -> None:
     asyncio.run(run_search())
 
 
-def test_provider_error_log_contains_exception(warning_log) -> None:
+def test_provider_error_log_contains_exception(warning_log: AsyncMock) -> None:
     asyncio.run(SearchService([FailingProvider()]).search("test"))
     warning_log.assert_awaited_once()
     call = warning_log.await_args
@@ -121,7 +123,9 @@ def test_provider_error_log_contains_exception(warning_log) -> None:
     assert isinstance(call.kwargs["exc_info"], ProviderError)
 
 
-def test_unexpected_error_preserves_results_and_logs(monkeypatch) -> None:
+def test_unexpected_error_preserves_results_and_logs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     log = AsyncMock()
     monkeypatch.setattr(search_service, "logger", log)
     original_error = RuntimeError("programming bug")
@@ -157,7 +161,7 @@ def test_unexpected_error_preserves_results_and_logs(monkeypatch) -> None:
     asyncio.run(run_search())
 
 
-def test_empty_provider_result_is_not_a_failure(monkeypatch) -> None:
+def test_empty_provider_result_is_not_a_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     log = AsyncMock()
     monkeypatch.setattr(search_service, "logger", log)
 
@@ -180,7 +184,7 @@ def test_empty_provider_result_is_not_a_failure(monkeypatch) -> None:
     asyncio.run(run_search())
 
 
-def test_external_cancellation_propagates(warning_log) -> None:
+def test_external_cancellation_propagates(warning_log: AsyncMock) -> None:
     async def run_search() -> None:
         provider = WaitingProvider("Waiting")
         task = asyncio.create_task(SearchService([provider]).search("test"))

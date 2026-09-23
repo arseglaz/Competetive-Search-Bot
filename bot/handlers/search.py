@@ -11,6 +11,7 @@ SOURCE_ORDER = ["Wikipedia", "GitHub", "Stack Overflow"]
 
 router = Router(name="search")
 
+
 @router.message()
 async def search_message(
     message: Message,
@@ -26,30 +27,21 @@ async def search_message(
     search_response = await search_service.search(query)
     results = search_response.results
 
-    if not results:
-        if search_response.failed_sources:
-            lines: list[str] = [
-                f'Search incomplete for "{escape(query)}": '
-                "no results available."
-            ]
-        else:
-            lines = [f'No results found for "{escape(query)}".']
-
-        if search_response.failed_sources:
-            failed_sources = ", ".join(
-                escape(source)
-                for source in search_response.failed_sources
-            )
-            lines.append(f"\nUnavailable sources: {failed_sources}")
-
-        await message.answer("\n".join(lines))
-        return
-
-    lines: list[str] = [f'Found {len(results)} result(s) for "{escape(query)}":']
-    for source_name in SOURCE_ORDER:
-        if source_name in search_response.failed_sources:
-            continue
-        lines.extend(_format_section(source_name, results))
+    if results:
+        lines = [
+            f'Found {len(results)} result(s) for "{escape(query)}":'
+        ]
+        for source_name in SOURCE_ORDER:
+            if source_name in search_response.failed_sources:
+                continue
+            lines.extend(_format_section(source_name, results))
+    elif search_response.failed_sources:
+        lines = [
+            f'Search incomplete for "{escape(query)}": '
+            "no results available."
+        ]
+    else:
+        lines = [f'No results found for "{escape(query)}".']
 
     if search_response.failed_sources:
         failed_sources = ", ".join(
