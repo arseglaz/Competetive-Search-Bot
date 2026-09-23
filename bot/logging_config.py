@@ -77,6 +77,7 @@ def get_processors(log_config: LogConfig) -> list:
     processors.append(ProjectNameProcessor(log_config.project_name))
 
     if log_config.renderer == LogRenderer.JSON:
+        processors.append(structlog.processors.format_exc_info)
         processors.append(
             structlog.processors.JSONRenderer(
                 serializer=custom_json_serializer,

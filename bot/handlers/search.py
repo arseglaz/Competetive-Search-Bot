@@ -27,7 +27,13 @@ async def search_message(
     results = search_response.results
 
     if not results:
-        lines: list[str] = [f'No results found for "{escape(query)}".']
+        if search_response.failed_sources:
+            lines: list[str] = [
+                f'Search incomplete for "{escape(query)}": '
+                "no results available."
+            ]
+        else:
+            lines = [f'No results found for "{escape(query)}".']
 
         if search_response.failed_sources:
             failed_sources = ", ".join(
@@ -41,6 +47,8 @@ async def search_message(
 
     lines: list[str] = [f'Found {len(results)} result(s) for "{escape(query)}":']
     for source_name in SOURCE_ORDER:
+        if source_name in search_response.failed_sources:
+            continue
         lines.extend(_format_section(source_name, results))
 
     if search_response.failed_sources:

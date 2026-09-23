@@ -1,9 +1,11 @@
 import html
+from json import JSONDecodeError
 import re
 
 import httpx
 
 from bot.models.search_result import SearchResult
+from bot.providers.errors import ProviderError
 
 WIKIPEDIA_API_URL = "https://en.wikipedia.org/w/api.php"
 WIKIPEDIA_ARTICLE_URL = "https://en.wikipedia.org/?curid={page_id}"
@@ -39,14 +41,38 @@ class WikipediaProvider:
         }
         headers = {"User-Agent": self._user_agent}
 
-        response = await self._client.get(
-            WIKIPEDIA_API_URL,
-            params=params,
-            headers=headers,
-        )
-        response.raise_for_status()
+        try:
+            response = await self._client.get(
+                WIKIPEDIA_API_URL,
+                params=params,
+                headers=headers,
+            )
+            response.raise_for_status()
+        except httpx.TimeoutException as exc:
+            raise ProviderError(
+                "Wikipedia API request timed out",
+                kind="http_timeout",
+            ) from exc
+        except httpx.HTTPStatusError as exc:
+            raise ProviderError(
+                "Wikipedia API returned an unsuccessful status",
+                kind="http_status",
+                status_code=exc.response.status_code,
+            ) from exc
+        except (httpx.NetworkError, httpx.RemoteProtocolError) as exc:
+            raise ProviderError(
+                "Failed to communicate with Wikipedia API",
+                kind="network",
+            ) from exc
 
-        data = response.json()
+        try:
+            data = response.json()
+        except JSONDecodeError as exc:
+            raise ProviderError(
+                f"{self.source_name} API returned invalid JSON",
+                kind="invalid_response",
+                status_code=response.status_code,
+            ) from exc
         raw_results = data.get("query", {}).get("search", [])
 
         return [
@@ -58,4 +84,3 @@ class WikipediaProvider:
             )
             for item in raw_results
         ]
-

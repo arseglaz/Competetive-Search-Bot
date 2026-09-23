@@ -2,6 +2,7 @@ import asyncio
 
 import httpx
 import pytest
+from bot.providers.errors import ProviderError
 
 from bot.providers.stackoverflow import StackOverflowProvider, _build_description
 
@@ -93,7 +94,11 @@ def test_search_raises_for_http_error() -> None:
         async with httpx.AsyncClient(transport=transport) as client:
             provider = StackOverflowProvider(client=client, user_agent="test")
 
-            with pytest.raises(httpx.HTTPStatusError):
+            with pytest.raises(ProviderError) as exc_info:
                 await provider.search("python asyncio")
+
+            assert exc_info.value.kind == "http_status"
+            assert exc_info.value.status_code == 502
+            assert isinstance(exc_info.value.__cause__, httpx.HTTPStatusError)
 
     asyncio.run(run_search())

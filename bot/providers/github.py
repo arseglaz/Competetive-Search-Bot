@@ -1,8 +1,10 @@
 from typing import Any
+from json import JSONDecodeError
 
 import httpx
 
 from bot.models.search_result import SearchResult
+from bot.providers.errors import ProviderError
 
 GITHUB_SEARCH_REPOSITORIES_URL = "https://api.github.com/search/repositories"
 SOURCE_NAME = "GitHub"
@@ -36,14 +38,38 @@ class GitHubProvider:
             "User-Agent": self._user_agent,
             "X-GitHub-Api-Version": GITHUB_API_VERSION,
         }
+        try:
+            response = await self._client.get(
+                GITHUB_SEARCH_REPOSITORIES_URL,
+                params=params,
+                headers=headers,
+            )
+            response.raise_for_status()
+        except httpx.TimeoutException as exc:
+            raise ProviderError(
+                "GitHub API request timed out",
+                kind="http_timeout",
+            ) from exc
+        except httpx.HTTPStatusError as exc:
+            raise ProviderError(
+                "GitHub API returned an unsuccessful status",
+                kind="http_status",
+                status_code=exc.response.status_code,
+            ) from exc
+        except (httpx.NetworkError, httpx.RemoteProtocolError) as exc:
+            raise ProviderError(
+                "Failed to communicate with GitHub API",
+                kind="network",
+            ) from exc
 
-        response = await self._client.get(
-            GITHUB_SEARCH_REPOSITORIES_URL,
-            params=params,
-            headers=headers,
-        )
-        response.raise_for_status()
-        data = response.json()
+        try:
+            data = response.json()
+        except JSONDecodeError as exc:
+            raise ProviderError(
+                f"{self.source_name} API returned invalid JSON",
+                kind="invalid_response",
+                status_code=response.status_code,
+            ) from exc
 
         return [
             SearchResult(
