@@ -2,6 +2,7 @@ import asyncio
 import math
 from dataclasses import dataclass
 from typing import Protocol
+from time import perf_counter
 
 import structlog
 from structlog.typing import FilteringBoundLogger
@@ -9,6 +10,7 @@ from structlog.typing import FilteringBoundLogger
 from bot.models.search_response import SearchResponse
 from bot.models.search_result import SearchResult
 from bot.providers.errors import ProviderError
+from bot.request_logging import request_log_context
 
 logger: FilteringBoundLogger = structlog.get_logger(__name__)
 
@@ -34,6 +36,7 @@ async def _search_provider(
     deadline: float,
     timeout_seconds: float,
 ) -> ProviderSearchResponse:
+    started = perf_counter()
     try:
         async with asyncio.timeout_at(deadline):
             async with semaphore:
@@ -74,6 +77,12 @@ async def _search_provider(
             results=[],
             failed_source=provider.source_name,
         )
+    await logger.ainfo(
+        "provider_completed",
+        source=provider.source_name,
+        results_count=len(results),
+        duration_ms=round((perf_counter() - started) * 1000, 3),
+    )
     return ProviderSearchResponse(results=results)
 
 
@@ -107,7 +116,31 @@ class SearchService:
         ]
 
     async def search(self, query: str) -> SearchResponse:
-        deadline = asyncio.get_running_loop().time() + self._search_timeout_seconds
+        with request_log_context():
+            started = perf_counter()
+            deadline = asyncio.get_running_loop().time() + self._search_timeout_seconds
+            try:
+                await logger.ainfo("search_started", providers_count=len(self._providers))
+                response = await self._search(query, deadline=deadline)
+            except asyncio.CancelledError:
+                await logger.ainfo(
+                    "search_cancelled", duration_ms=round((perf_counter() - started) * 1000, 3),
+                )
+                raise
+            if response.failed_sources:
+                outcome = "partial" if response.results else "failed"
+            else:
+                outcome = "complete" if response.results else "empty"
+            await logger.ainfo(
+                "search_completed",
+                outcome=outcome,
+                results_count=len(response.results),
+                failed_sources=response.failed_sources,
+                duration_ms=round((perf_counter() - started) * 1000, 3),
+            )
+            return response
+
+    async def _search(self, query: str, *, deadline: float) -> SearchResponse:
         provider_responses = await asyncio.gather(
             *(
                 _search_provider(

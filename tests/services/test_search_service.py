@@ -69,10 +69,15 @@ class WaitingProvider:
 
 
 @pytest.fixture
-def warning_log(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
+def warning_log(service_log: AsyncMock) -> AsyncMock:
+    return service_log.awarning
+
+
+@pytest.fixture(autouse=True)
+def service_log(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
     log = AsyncMock()
     monkeypatch.setattr(search_service, "logger", log)
-    return log.awarning
+    return log
 
 
 @pytest.mark.parametrize("timeout", [0.01, 0.2])
@@ -251,7 +256,7 @@ def test_search_runs_providers_concurrently() -> None:
     asyncio.run(run_search())
 
 
-def test_search_keeps_successful_results_when_provider_fails() -> None:
+def test_search_keeps_successful_results_when_provider_fails(warning_log: AsyncMock) -> None:
     async def run_search() -> None:
         service = SearchService(providers=[FakeProvider("First"), FailingProvider()])
 
@@ -261,3 +266,14 @@ def test_search_keeps_successful_results_when_provider_fails() -> None:
         assert search_response.failed_sources == ["Failing"]
 
     asyncio.run(run_search())
+
+
+def test_all_provider_errors_return_all_failed_sources(warning_log: AsyncMock) -> None:
+    providers = [FailingProvider(), FailingProvider(), FailingProvider()]
+    for provider, name in zip(providers, ["Wikipedia", "GitHub", "Stack Overflow"]):
+        provider.source_name = name
+
+    response = asyncio.run(SearchService(providers).search("test"))
+
+    assert response.results == []
+    assert response.failed_sources == ["Wikipedia", "GitHub", "Stack Overflow"]

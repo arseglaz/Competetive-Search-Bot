@@ -64,7 +64,7 @@ def get_processors(log_config: LogConfig) -> list:
             event_dict.pop("_record")
         return event_dict
 
-    processors = list()
+    processors = [structlog.contextvars.merge_contextvars]
     if log_config.show_datetime:
         processors.append(
             structlog.processors.TimeStamper(

@@ -73,7 +73,23 @@ class WikipediaProvider:
                 kind="invalid_response",
                 status_code=response.status_code,
             ) from exc
-        raw_results = data.get("query", {}).get("search", [])
+        if isinstance(data, dict) and ("error" in data or data.get("errors")):
+            raise ProviderError(
+                "Wikipedia API reported an error",
+                kind="api_error",
+                status_code=response.status_code,
+            )
+        if (
+            not isinstance(data, dict)
+            or not isinstance(data.get("query"), dict)
+            or not isinstance(data["query"].get("search"), list)
+        ):
+            raise ProviderError(
+                "Wikipedia API returned an invalid search response",
+                kind="invalid_response",
+                status_code=response.status_code,
+            )
+        raw_results = data["query"]["search"]
 
         return [
             SearchResult(

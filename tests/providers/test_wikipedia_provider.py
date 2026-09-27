@@ -96,3 +96,44 @@ def test_search_raises_for_http_error() -> None:
             assert isinstance(exc_info.value.__cause__, httpx.HTTPStatusError)
 
     asyncio.run(run_search())
+
+
+@pytest.mark.parametrize("payload", [
+    {"error": {"code": "internal_api_error", "info": "Search failed"}},
+    {"errors": [{"code": "internal_api_error", "text": "Search failed"}]},
+    {"error": {"code": "badvalue"}, "query": {"search": []}},
+])
+def test_http_200_api_error_is_not_an_empty_search(payload):
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(
+            lambda request: httpx.Response(200, json=payload),
+        )) as client:
+            with pytest.raises(ProviderError) as error:
+                await WikipediaProvider(client, "test").search("python")
+        assert error.value.kind == "api_error"
+        assert error.value.status_code == 200
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize("payload", [{}, [], {"query": {}}, {"query": {"search": None}}])
+def test_missing_or_invalid_search_list_is_not_an_empty_search(payload):
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(
+            lambda request: httpx.Response(200, json=payload),
+        )) as client:
+            with pytest.raises(ProviderError) as error:
+                await WikipediaProvider(client, "test").search("python")
+        assert error.value.kind == "invalid_response"
+    asyncio.run(run())
+
+
+def test_nonfatal_warning_does_not_discard_valid_results():
+    async def run():
+        payload = {"warnings": {"query": {"*": "Nonfatal warning"}},
+                   "query": {"search": [{"title": "Python", "pageid": 1}]}}
+        async with httpx.AsyncClient(transport=httpx.MockTransport(
+            lambda request: httpx.Response(200, json=payload),
+        )) as client:
+            results = await WikipediaProvider(client, "test").search("python")
+        assert [result.title for result in results] == ["Python"]
+    asyncio.run(run())

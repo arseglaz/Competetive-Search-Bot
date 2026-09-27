@@ -2,6 +2,7 @@ import json
 
 import pytest
 import structlog
+from structlog.contextvars import bound_contextvars
 
 from bot.config import LogConfig, LogRenderer
 from bot.logging_config import get_processors
@@ -35,3 +36,22 @@ def test_exception_chain_is_rendered(renderer) -> None:
     assert "ConnectionError: connection lost" in rendered
     assert "ProviderError: provider failed" in rendered
     assert "Traceback" in rendered
+
+
+@pytest.mark.parametrize("renderer", [LogRenderer.JSON, LogRenderer.CONSOLE])
+def test_request_id_is_rendered_and_removed_after_context(renderer):
+    config = LogConfig(
+        project_name="test", show_datetime=False, datetime_format="iso",
+        show_debug_logs=False, time_in_utc=True, use_colors_in_console=False,
+        renderer=renderer, allow_third_party_logs=False,
+    )
+    log = structlog.wrap_logger(
+        structlog.testing.ReturnLogger(), processors=get_processors(config),
+        wrapper_class=structlog.make_filtering_bound_logger(20),
+    )
+    with bound_contextvars(request_id="request-123"):
+        rendered = log.info("search_completed", outcome="empty", results_count=0)
+    assert "request-123" in rendered
+    if renderer == LogRenderer.JSON:
+        assert json.loads(rendered)["request_id"] == "request-123"
+    assert "request_id" not in log.info("outside_request")
