@@ -44,6 +44,8 @@ async def main() -> None:
                 github_provider,
                 stackoverflow_provider,
             ],
+            search_timeout_seconds=settings.search.search_timeout_seconds,
+            max_concurrent_per_provider=settings.search.max_concurrent_per_provider,
         )
 
         dp = Dispatcher(search_service=search_service)

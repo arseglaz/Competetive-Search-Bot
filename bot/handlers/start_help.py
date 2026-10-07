@@ -1,8 +1,8 @@
 from aiogram import Router
-from aiogram.filters import CommandStart
+from aiogram.filters import Command
 from aiogram.types import Message
 
-router = Router(name="start")
+router = Router(name="start_help")
 
 START_MESSAGE = (
     "<b>Competitive Search Bot</b>\n"
@@ -17,6 +17,6 @@ START_MESSAGE = (
 )
 
 
-@router.message(CommandStart())
-async def cmd_start(message: Message) -> None:
+@router.message(Command("start", "help"))
+async def cmd_start_help(message: Message) -> None:
     await message.answer(START_MESSAGE)

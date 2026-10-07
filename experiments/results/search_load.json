@@ -1,0 +1,36 @@
+{
+  "measured_at_utc": "2026-10-07T15:15:18.254355+00:00",
+  "python": "3.14.7",
+  "platform": "Linux-7.2.8-1-cachyos-x86_64-with-glibc2.44",
+  "mode": "simulated_io",
+  "query": "python asyncio",
+  "repeats": 5,
+  "warmup_pairs": 1,
+  "provider_delays_seconds": {
+    "Wikipedia": 0.05,
+    "GitHub": 0.1,
+    "Stack Overflow": 0.2
+  },
+  "results_per_search": 3,
+  "search_timeout_seconds": 5.0,
+  "max_concurrent_per_provider": 3,
+  "samples": {
+    "sequential_ms": [
+      352.696,
+      352.62,
+      352.595,
+      352.453,
+      351.952
+    ],
+    "concurrent_ms": [
+      202.237,
+      201.282,
+      201.441,
+      201.414,
+      201.793
+    ]
+  },
+  "median_sequential_ms": 352.595,
+  "median_concurrent_ms": 201.441,
+  "speedup": 1.75
+}

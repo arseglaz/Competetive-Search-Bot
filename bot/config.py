@@ -3,7 +3,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any, Tuple, Type
 
-from pydantic import BaseModel, SecretStr
+from pydantic import BaseModel, Field, SecretStr, field_validator
 from pydantic_settings import (
     BaseSettings,
     PydanticBaseSettingsSource,
@@ -33,6 +33,19 @@ class LogConfig(BaseModel):
 class HttpConfig(BaseModel):
     user_agent: str
 
+
+class SearchConfig(BaseModel):
+    search_timeout_seconds: float = Field(default=5.0, gt=0, allow_inf_nan=False)
+    max_concurrent_per_provider: int = Field(default=3, gt=0, strict=True)
+
+    @field_validator("max_concurrent_per_provider", mode="before")
+    @classmethod
+    def parse_concurrency_limit(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            return int(value)
+        return value
+
+
 class TomlConfigSettingsSource(PydanticBaseSettingsSource):
     def get_field_value(
         self, field: Any, field_name: str
@@ -51,6 +64,7 @@ class Settings(BaseSettings):
     bot: BotConfig
     logs: LogConfig
     http: HttpConfig
+    search: SearchConfig = Field(default_factory=SearchConfig)
 
     model_config = SettingsConfigDict(
         env_nested_delimiter="__",

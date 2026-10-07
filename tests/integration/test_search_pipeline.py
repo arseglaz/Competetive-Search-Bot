@@ -1,5 +1,3 @@
-"""Real dispatcher/handlers/service/providers; only external API boundaries are fake."""
-
 import asyncio
 from contextlib import asynccontextmanager
 from html import escape
@@ -16,7 +14,7 @@ from aiogram.types import Update
 from structlog.contextvars import get_contextvars
 
 from bot.handlers import get_routers, search as handler_module
-from bot.handlers.start import START_MESSAGE
+from bot.handlers.start_help import START_MESSAGE
 from bot.providers.github import GitHubProvider
 from bot.providers.stackoverflow import StackOverflowProvider
 from bot.providers.wikipedia import WikipediaProvider
@@ -169,8 +167,8 @@ def incoming(bot, text="python", chat_id=101):
         }
     else:
         message["text"] = text
-        if text == "/start":
-            message["entities"] = [{"type": "bot_command", "offset": 0, "length": 6}]
+        if text in ("/start", "/help"):
+            message["entities"] = [{"type": "bot_command", "offset": 0, "length": len(text)}]
     return Update.model_validate({"update_id": chat_id, "message": message}, context={"bot": bot})
 
 
@@ -241,14 +239,14 @@ def test_message_to_search_to_reply(dispatcher, events, mode, outcome, count, fa
     asyncio.run(run())
 
 
-@pytest.mark.parametrize("text", ["/start", None, "   "])
+@pytest.mark.parametrize("text", ["/start", "/help", None, "   "])
 def test_non_search_messages_bypass_providers(dispatcher, events, text):
     async def run():
         api = SearchAPI()
         async with application(api) as (bot, service, session):
             await dispatcher.feed_update(bot, incoming(bot, text), search_service=service)
             (payload, _), = session.sent
-            assert payload["text"] == (START_MESSAGE if text == "/start" else "Please send a text search query")
+            assert payload["text"] == (START_MESSAGE if text in ("/start", "/help") else "Please send a text search query")
             assert not api.calls
             assert not any(e["event"] == "search_started" for e in events)
 
